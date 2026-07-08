@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Sentinel</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#030008;height:100%;width:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+#app{position:relative;width:100vw;height:100vh;background:#030008}
+#orb{display:block;position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
+#status{position:absolute;top:max(14px,env(safe-area-inset-top));right:18px;width:10px;height:10px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 8px #8b5cf6,0 0 16px rgba(139,92,246,0.4);z-index:10;transition:all .4s}
+#status.listening{background:#10b981;box-shadow:0 0 10px #10b981,0 0 20px rgba(16,185,129,0.5)}
+#status.thinking{background:#6366f1;box-shadow:0 0 10px #6366f1,0 0 20px rgba(99,102,241,0.5)}
+#status.executing{background:#f59e0b;box-shadow:0 0 10px #f59e0b,0 0 20px rgba(245,158,11,0.5)}
+#status.speaking{background:#06b6d4;box-shadow:0 0 10px #06b6d4,0 0 20px rgba(6,182,212,0.5)}
+#mic{position:absolute;bottom:max(36px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:60px;height:60px;border-radius:50%;border:1.5px solid rgba(139,92,246,0.3);background:rgba(139,92,246,0.04);display:flex;align-items:center;justify-content:center;font-size:26px;z-index:10;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:all .3s}
+#mic:active{transform:translateX(-50%) scale(.9)}
+#mic.listening{border-color:#10b981;background:rgba(16,185,129,0.1);animation:micPulse 1.2s infinite}@keyframes micPulse{0%,100%{box-shadow:0 0 16px rgba(16,185,129,0.15)}50%{box-shadow:0 0 32px rgba(16,185,129,0.35)}}
+#log{position:absolute;bottom:110px;left:8px;right:8px;max-height:130px;overflow-y:auto;z-index:5;font-size:10px;color:rgba(255,255,255,0.45);pointer-events:none}#log .line{padding:1px 0;border-bottom:1px solid rgba(255,255,255,0.03)}#log .line.user{color:#c084fc;text-align:right}#log .line.ai{color:#67e8f9}#log .line.task{color:#fbbf24}#log .line.err{color:#f87171}
+</style>
+</head>
+<body>
+<div id="app"><div id="status" class="idle"></div><canvas id="orb"></canvas><div id="mic">🎤</div><div id="log"></div></div>
+<script>
+// ===== STATE =====
+const STATES={IDLE:'idle',LISTENING:'listening',THINKING:'thinking',EXECUTING:'executing',SPEAKING:'speaking'};
+let state=STATES.IDLE;
+const status=document.getElementById('status'),mic=document.getElementById('mic'),logEl=document.getElementById('log');
+
+function setState(s){state=s;status.className=s;mic.className=s==='listening'?'listening':'';mic.textContent=s==='listening'?'🔴':s==='thinking'?'💭':s==='speaking'?'🔊':'🎤'}
+function addLog(msg,cls=''){const d=document.createElement('div');d.className='line '+cls;d.textContent=msg;logEl.appendChild(d);logEl.scrollTop=logEl.scrollHeight;while(logEl.children.length>30)logEl.firstChild.remove()}
+
+// ===== WEB SPEECH API (native, no system dialog) =====
+let recognition=null;
+let cooldownUntil=0;
+
+function initRecognition(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){addLog('Speech API not available','err');return false}
+  const r=new SR();
+  r.continuous=false;
+  r.interimResults=false;
+  r.lang='ko-KR';
+  r.onresult=e=>{
+    const text=e.results[0][0].transcript.trim();
+    if(typeof Console!=='undefined')Console.log('WebSpeech result: '+text);
+    if(text)onSpeechResult(text);
+  };
+  r.onerror=e=>{
+    if(typeof Console!=='undefined')Console.log('WebSpeech error: '+e.error);
+    addLog('Speech err: '+e.error,'err');
+    onSpeechError();
+  };
+  r.onend=()=>{
+    if(typeof Console!=='undefined')Console.log('WebSpeech ended, state='+state);
+    if(state===STATES.LISTENING)setState(STATES.IDLE);
+  };
+  recognition=r;
+  return true;
+}
+
+function startListening(){
+  if(state!==STATES.IDLE)return;
+  if(Date.now()<cooldownUntil)return;
+  cooldownUntil=Date.now()+2000;
+
+  if(!recognition&&!initRecognition()){setState(STATES.IDLE);return}
+  try{
+    if(typeof Console!=='undefined')Console.log('WebSpeech starting...');
+    setState(STATES.LISTENING);
+    addLog('🎤 Listening...','');
+    recognition.start();
+  }catch(e){
+    if(typeof Console!=='undefined')Console.log('WebSpeech start error: '+e);
+    addLog('Speech start err','err');
+    setState(STATES.IDLE);
+  }
+}
+
+function onSpeechResult(text){
+  if(!text)return;
+  addLog(text,'user');
+  processCommand(text);
+}
+
+function onSpeechError(){
+  if(state===STATES.LISTENING)setState(STATES.IDLE);
+}
+window.onSpeechResult=onSpeechResult;
+window.onSpeechError=onSpeechError;
+
+// ===== PROCESS =====
+function processCommand(text){
+  setState(STATES.THINKING);addLog('🤔 Processing...','');
+  const tid=spawnSubOrb('Analyzing: '+text.slice(0,18),'code');
+  showFilePreview(tid,'voice_cmd.txt','reading');
+  setTimeout(()=>hideFilePreview(tid,'voice_cmd.txt'),1500);
+  setTimeout(()=>updateSubOrb(tid,{status:'done'}),2000);
+
+  const RELAY_URL='http://100.95.124.3:9091';
+  const TTS_URL='http://100.95.124.3:9092';
+  fetch(RELAY_URL+'/api/chat',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({message:text,provider:'zai',model:'glm-5.1'})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    const reply=data.response||data.text||data.message||'응답을 받지 못했습니다.';
+    addLog(reply,'ai');
+    if(typeof Console!=='undefined')Console.log('Relay reply: '+reply.slice(0,40));
+    setState(STATES.SPEAKING);
+    speak(reply);
+  })
+  .catch(e=>{
+    if(typeof Console!=='undefined')Console.log('Relay error: '+e.message);
+    addLog('Relay err: '+e.message,'err');
+    const demo=generateDemo(text);
+    addLog(demo,'ai');
+    setState(STATES.SPEAKING);
+    speak(demo);
+  });
+}
+
+function generateDemo(t){const l=t.toLowerCase();if(/상태|status/.test(l))return 'CPU 12% · RAM 3.4G/11.6G · Disk 31% — 모두 정상입니다';if(/안녕|반가|hello/.test(l))return '안녕하세요 일신님! 무엇을 도와드릴까요?';if(/시간|몇 시/.test(l))return '현재 '+new Date().toLocaleTimeString('ko-KR')+' 입니다.';return '이해했습니다. (데모 모드)'}
+
+// ===== TTS with proper Android WebView init =====
+let ttsReady=false,ttsSupported=typeof speechSynthesis!=='undefined';
+if(ttsSupported){
+speechSynthesis.onvoiceschanged=()=>{
+  const voices=speechSynthesis.getVoices();
+  ttsReady=voices.length>0;
+  if(typeof Console!=='undefined')Console.log('TTS voices loaded: '+voices.length);
+};
+speechSynthesis.getVoices();
+}else{if(typeof Console!=='undefined')Console.log('TTS not available (speechSynthesis undefined)');}
+
+function speak(text){
+  if(!ttsSupported){
+    if(typeof Console!=='undefined')Console.log('TTS skipped: not supported');
+    setState(STATES.IDLE);cooldownUntil=Date.now()+1500;
+    return;
+  }
+  setState(STATES.SPEAKING);
+  if(typeof Console!=='undefined')Console.log('TTS speak: '+text.slice(0,40));
+  speechSynthesis.cancel();
+  const su=new SpeechSynthesisUtterance(text);
+  su.lang='ko-KR';su.rate=1.0;su.pitch=1.0;su.volume=1.0;
+  su.onstart=()=>{if(typeof Console!=='undefined')Console.log('TTS started')};
+  su.onend=()=>{
+    if(typeof Console!=='undefined')Console.log('TTS ended');
+    setState(STATES.IDLE);cooldownUntil=Date.now()+1500;
+  };
+  su.onerror=e=>{
+    if(typeof Console!=='undefined')Console.log('TTS error: '+e.error);
+    addLog('TTS err: '+e.error,'err');
+    setState(STATES.IDLE);
+  };
+  speechSynthesis.speak(su);
+}
+
+// ===== INTERRUPT: tap during speaking/thinking =====
+function handleTap(){
+  if(typeof Console!=='undefined')Console.log('handleTap state='+state);
+  if(state===STATES.IDLE){
+    startListening();
+  }else if(state===STATES.SPEAKING||state===STATES.THINKING){
+    // Interrupt: stop everything, start fresh listening
+    speechSynthesis.cancel();
+    if(recognition)try{recognition.abort()}catch(e){}
+    setState(STATES.IDLE);
+    addLog('⏹ Interrupted','task');
+    setTimeout(()=>startListening(),300);
+  }
+}
+window.handleTap=handleTap;
+
+// ===== TAP =====
+mic.addEventListener('click',e=>{
+  e.stopPropagation();
+  handleTap();
+});
+
+// ===== SUB-AGENT ORBS =====
+let subOrbs=[],nextOrbId=0;
+function spawnSubOrb(name,type='task'){
+  const id=++nextOrbId;
+  const colors={task:'#f59e0b',code:'#6366f1',review:'#06b6d4',research:'#10b981',build:'#f97316'};
+  const icons={task:'📋',code:'💻',review:'🔍',research:'📚',build:'🔧'};
+  subOrbs.push({id,name,type,color:colors[type]||'#8b5cf6',icon:icons[type]||'⚡',
+    angle:Math.random()*Math.PI*2,radius:140+Math.random()*70,speed:0.3+Math.random()*0.5,
+    alpha:0,targetAlpha:1,scale:0,targetScale:1,createdAt:performance.now(),files:[],pulse:0,state:'working'});
+  addLog(`⬤ ${name} started`,'task');return id;
+}
+function updateSubOrb(id,u){const o=subOrbs.find(o=>o.id===id);if(!o)return;Object.assign(o,u);if(u.status==='done'){o.targetAlpha=0;o.targetScale=0;addLog(`✅ ${o.name} done`,'task')}}
+function dismissSubOrb(id){const o=subOrbs.find(o=>o.id===id);if(o){o.targetAlpha=0;o.targetScale=0;setTimeout(()=>{subOrbs=subOrbs.filter(s=>s.id!==id)},800)}}
+function showFilePreview(orbId,filename,action='reading'){
+  const orb=subOrbs.find(o=>o.id===orbId);if(!orb)return;
+  const ext=filename.split('.').pop();
+  const icons={js:'📜',py:'🐍',html:'🌐',css:'🎨',md:'📝',json:'⚙️',png:'🖼️',java:'☕',kt:'💜',txt:'📄'};
+  const actions={reading:'👀',writing:'✏️',executing:'▶️'};
+  orb.files.push({name:filename.length>16?filename.slice(0,14)+'..':filename,icon:icons[ext]||'📄',action:actions[action]||'📂',alpha:0,targetAlpha:1,createdAt:performance.now()});
+}
+function hideFilePreview(orbId,filename){
+  const orb=subOrbs.find(o=>o.id===orbId);if(!orb)return;
+  const f=orb.files.find(f=>f.name.includes(filename.slice(0,10)));if(f){f.targetAlpha=0;setTimeout(()=>{orb.files=orb.files.filter(x=>x!==f)},600)}
+}
+window.SentinelAPI={spawnSubOrb,updateSubOrb,dismissSubOrb,showFilePreview,hideFilePreview,addLog:(m,c)=>addLog(m,c),setState:s=>setState(s)};
+
+// ===== JARVIS ORB CANVAS =====
+const canvas=document.getElementById('orb'),ctx=canvas.getContext('2d');
+let W,H,T=0,audioLevel=0,targetAudio=0,breath=0,mx=0.5,my=0.5,tmx=0.5,tmy=0.5;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+resize();addEventListener('resize',resize);
+addEventListener('pointermove',e=>{tmx=e.clientX/innerWidth;tmy=e.clientY/innerHeight});
+const stars=Array.from({length:70},()=>({angle:Math.random()*Math.PI*2,radius:60+Math.random()*200,speed:.06+Math.random()*.4,osc:.3+Math.random()*1.2,size:.6+Math.random()*3,alpha:.2+Math.random()*.8,hue:Math.random()<.55?270:190,flicker:Math.random()*Math.PI*2,fs:.02+Math.random()*.06,tilt:.2+Math.random()*.4}));
+const edges=[];for(let i=0;i<stars.length;i++)for(let j=i+1;j<stars.length;j++){const dr=Math.abs(stars[i].radius-stars[j].radius),da=Math.abs(stars[i].angle-stars[j].angle);if(Math.sqrt(dr*dr+da*da*45)<40&&Math.random()<.1)edges.push({a:i,b:j,alpha:.03+Math.random()*.06})}
+function starPath(ctx,x,y,r){ctx.beginPath();for(let i=0;i<8;i++){const rr=i%2===0?r*2.5:r*.5,a=i*Math.PI/4-Math.PI/2;ctx[i?'lineTo':'moveTo'](x+Math.cos(a)*rr,y+Math.sin(a)*rr)}ctx.closePath()}
+function rgba(c,a){return c.replace('rgb','rgba').replace(')',','+a+')')}
+function drawOrb(cx,cy,radius,color,alpha,scale){
+  const r=Math.max(1.5,radius*scale), a=alpha;
+  if(a<0.005||r<1.5)return;
+  for(let l=4;l>=0;l--){
+    const lr=Math.max(0.2,r+l*18+Math.sin(T*1.5+l)*5);
+    const g=ctx.createRadialGradient(cx,cy,lr*.1,cx,cy,lr);
+    g.addColorStop(0,rgba(color,(.14-l*.02)*a));g.addColorStop(.5,rgba(color,(.06-l*.01)*a));g.addColorStop(1,'transparent');
+    ctx.beginPath();ctx.arc(cx,cy,lr,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+  }
+  const core=ctx.createRadialGradient(cx-3,cy-4,2,cx,cy,r*.85);
+  core.addColorStop(0,`rgba(255,255,255,${.9*a})`);core.addColorStop(.12,`rgba(230,220,255,${.7*a})`);core.addColorStop(.35,rgba(color,.3*a));core.addColorStop(.7,rgba(color,.06*a));core.addColorStop(1,'transparent');
+  ctx.beginPath();ctx.arc(cx,cy,r*.85,0,Math.PI*2);ctx.fillStyle=core;ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle=rgba(color,.2*a);ctx.lineWidth=1.5;ctx.stroke();
+}
+function drawFileIcon(cx,cy,file,alpha,now){if(alpha<.02)return;const fy=cy-30-Math.sin((now-file.createdAt)*.003)*8;ctx.globalAlpha=alpha;ctx.font=`${11*devicePixelRatio}px sans-serif`;ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.8)';ctx.fillText(file.action+' '+file.icon,cx,fy-8);ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillText(file.name,cx,fy+10);ctx.globalAlpha=1}
+function draw(){
+  T+=.016;mx+=(tmx-mx)*.04;my+=(tmy-my)*.04;
+  if(state===STATES.SPEAKING)targetAudio=.5+Math.sin(T*8)*.3;else if(state===STATES.LISTENING)targetAudio=.3+Math.sin(T*5)*.2;else targetAudio=0;
+  audioLevel+=(targetAudio-audioLevel)*.1;breath=Math.sin(T*.8)*.5+.5;
+  ctx.clearRect(0,0,W,H);const cx=W/2+(mx-.5)*40,cy=H/2-H*.05+(my-.5)*20;
+  const bg=ctx.createRadialGradient(cx,cy,40,cx,cy,W*.55);bg.addColorStop(0,'rgba(99,102,241,.07)');bg.addColorStop(.35,'rgba(99,102,241,.015)');bg.addColorStop(1,'transparent');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  const pts=stars.map(s=>{const a=s.angle+T*s.speed*.25,r=s.radius+Math.sin(T*s.osc+s.flicker)*16;return{x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r*s.tilt,size:s.size,alpha:s.alpha,hue:s.hue,fs:s.fs,flicker:s.flicker}});
+  for(const e of edges){const la=Math.min(pts[e.a].alpha,pts[e.b].alpha)*e.alpha*5;if(la<.01)continue;ctx.beginPath();ctx.moveTo(pts[e.a].x,pts[e.a].y);ctx.lineTo(pts[e.b].x,pts[e.b].y);ctx.strokeStyle=`rgba(147,51,234,${la})`;ctx.lineWidth=.4;ctx.stroke()}
+  for(let r=0;r<3;r++){const rr=68+r*30;ctx.beginPath();ctx.ellipse(cx,cy,rr,rr*.24,T*.15+r*1.2,0,Math.PI*2);ctx.strokeStyle=`rgba(147,51,234,${.14-r*.04})`;ctx.lineWidth=.5;ctx.stroke()}
+  const stateColors={idle:'rgb(139,92,246)',listening:'rgb(16,185,129)',thinking:'rgb(99,102,241)',executing:'rgb(245,158,11)',speaking:'rgb(6,182,212)'};
+  const mainColor=stateColors[state]||stateColors.idle,mainRadius=55+breath*8+audioLevel*25;
+  drawOrb(cx,cy,mainRadius,mainColor,1,1);
+  if(audioLevel>.05){const wr=mainRadius+15+audioLevel*30;ctx.beginPath();ctx.arc(cx,cy,wr,0,Math.PI*2);ctx.strokeStyle=rgba(mainColor,audioLevel*.4);ctx.lineWidth=2+audioLevel*4;ctx.stroke()}
+  for(const p of pts){const fa=p.alpha*(.5+.5*Math.sin(T*p.fs*25+p.flicker));if(fa<.025)continue;const c=p.hue<200?`rgba(6,182,212,${fa})`:`rgba(192,132,252,${fa})`;const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size*9);g.addColorStop(0,c);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.size*9,0,Math.PI*2);ctx.fill();ctx.fillStyle=c;starPath(ctx,p.x,p.y,p.size);ctx.fill();ctx.fillStyle=`rgba(255,255,255,${fa*.8})`;ctx.beginPath();ctx.arc(p.x,p.y,p.size*.3,0,Math.PI*2);ctx.fill()}
+  for(const s of[{a:T*.25,r:85,sz:4.2,c:'rgb(6,182,212)'},{a:T*.25+2.1,r:98,sz:3.8,c:'rgb(192,132,252)'},{a:T*.25+4.1,r:78,sz:3.4,c:'rgb(147,51,234)'}]){const sx=cx+Math.cos(s.a)*s.r,sy=cy+Math.sin(s.a)*s.r*.24;const g=ctx.createRadialGradient(sx,sy,0,sx,sy,s.sz*12);g.addColorStop(0,rgba(s.c,.7));g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(sx,sy,s.sz*12,0,Math.PI*2);ctx.fill();ctx.fillStyle=rgba(s.c,.95);starPath(ctx,sx,sy,s.sz);ctx.fill();ctx.fillStyle='white';ctx.beginPath();ctx.arc(sx,sy,s.sz*.45,0,Math.PI*2);ctx.fill()}
+  const now=performance.now();
+  for(const o of subOrbs){o.alpha+=(o.targetAlpha-o.alpha)*.08;o.scale+=(o.targetScale-o.scale)*.08;if(o.alpha<.01&&o.targetAlpha===0)continue;const sx=cx+Math.cos(o.angle+T*o.speed*.15)*o.radius,sy=cy+Math.sin(o.angle+T*o.speed*.15)*o.radius*.3,sr=18+Math.sin(T*2+o.id)*3;drawOrb(sx,sy,sr,o.color,o.alpha*o.alpha,o.scale);ctx.globalAlpha=o.alpha*.8;ctx.font=`${9*devicePixelRatio}px sans-serif`;ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.7)';ctx.fillText(o.icon+' '+o.name,sx,sy+sr+16);ctx.globalAlpha=1;o.files.forEach(f=>{f.alpha+=(f.targetAlpha-f.alpha)*.12;if(f.alpha>.01)drawFileIcon(sx,sy,f,f.alpha,now)});o.files=o.files.filter(f=>f.alpha>.01||f.targetAlpha>0)}
+  subOrbs=subOrbs.filter(o=>o.alpha>.01||o.targetAlpha>0);
+  requestAnimationFrame(draw);
+}
+draw();
+// Demo sub-orbs
+setTimeout(()=>{const id=spawnSubOrb('Codex','code');showFilePreview(id,'app.js','writing');setTimeout(()=>hideFilePreview(id,'app.js'),2000);setTimeout(()=>showFilePreview(id,'styles.css','writing'),1500);setTimeout(()=>hideFilePreview(id,'styles.css'),3500);setTimeout(()=>updateSubOrb(id,{status:'done'}),4000)},4000);
+setTimeout(()=>{const id=spawnSubOrb('Security Scan','review');showFilePreview(id,'auth.py','reading');setTimeout(()=>hideFilePreview(id,'auth.py'),1800);setTimeout(()=>updateSubOrb(id,{status:'done'}),2500)},8000);
+addLog('Sentinel v0.5 — Web Speech API','');
+</script>
+</body>
+</html>

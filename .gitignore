@@ -2,3 +2,11 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# APK build artifacts
+apk/.gradle/
+apk/app/build/
+apk/build/
+apk/local.properties
+apk/*.apk
+apk/gradle/wrapper/gradle-wrapper.jar
