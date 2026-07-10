@@ -6,16 +6,18 @@ Sentinel 음성 AI 비서의 Android WebView 클라이언트.
 
 | 파일 | 설명 |
 |---|---|
-| `mobile-demo.html` | WebView에 로드되는 모바일 UI (STT + Orb + 대화) |
-| `phone-*.png` | 개발/디버깅 중 캡처한 스크린샷 (17장) |
+| `mobile-demo.html` | 데모/캡처용 정적 UI (Orb 애니메이션만) |
+| `apk/app/src/main/assets/index.html` | WebView에 로드되는 실제 모바일 UI (STT + TTS + Orb + 대화) |
+| `apk/` | Android APK 소스 (MainActivity, OverlayPetService, Gradle) |
+| `phone-*.png` | 개발/디버깅 중 캡처한 스크린샷 |
 | `sentinel-mobile-demo.png` | 데모 스크린샷 |
 
 ## APK 빌드
 
-APK 소스는 `~/sentinel-apk/`에 있다.
+APK 소스는 `apk/` 디렉토리에 있다.
 
 ```bash
-cd ~/sentinel-apk
+cd apk
 ./gradlew assembleDebug
 # 출력: app/build/outputs/apk/debug/app-debug.apk
 ```

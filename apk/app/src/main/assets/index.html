@@ -5,259 +5,443 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Sentinel</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+:root{--bg-void:#030008;--bg-surface:#0a0612;--bg-input:#050208;--c-violet:#8b5cf6;--c-violet-lt:#a78bfa;--c-green:#10b981;--c-indigo:#6366f1;--c-cyan:#06b6d4;--c-amber:#fbbf24;--c-purple:#d8b4fe;--c-red:#f87171;--text:#f8f5ff;--text-2:rgba(255,255,255,.66);--text-3:rgba(255,255,255,.48);--glass-bd:rgba(139,92,246,.3);--btn-bg:rgba(4,2,10,.42);--font-dp:'Space Grotesk',sans-serif;--font-ui:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{background:#030008;height:100%;width:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
-#app{position:relative;width:100vw;height:100vh;background:#030008}
-#orb{display:block;position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
-#status{position:absolute;top:max(14px,env(safe-area-inset-top));right:18px;width:10px;height:10px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 8px #8b5cf6,0 0 16px rgba(139,92,246,0.4);z-index:10;transition:all .4s}
-#status.listening{background:#10b981;box-shadow:0 0 10px #10b981,0 0 20px rgba(16,185,129,0.5)}
-#status.thinking{background:#6366f1;box-shadow:0 0 10px #6366f1,0 0 20px rgba(99,102,241,0.5)}
-#status.executing{background:#f59e0b;box-shadow:0 0 10px #f59e0b,0 0 20px rgba(245,158,11,0.5)}
-#status.speaking{background:#06b6d4;box-shadow:0 0 10px #06b6d4,0 0 20px rgba(6,182,212,0.5)}
-#mic{position:absolute;bottom:max(36px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:60px;height:60px;border-radius:50%;border:1.5px solid rgba(139,92,246,0.3);background:rgba(139,92,246,0.04);display:flex;align-items:center;justify-content:center;font-size:26px;z-index:10;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:all .3s}
-#mic:active{transform:translateX(-50%) scale(.9)}
-#mic.listening{border-color:#10b981;background:rgba(16,185,129,0.1);animation:micPulse 1.2s infinite}@keyframes micPulse{0%,100%{box-shadow:0 0 16px rgba(16,185,129,0.15)}50%{box-shadow:0 0 32px rgba(16,185,129,0.35)}}
-#log{position:absolute;bottom:110px;left:8px;right:8px;max-height:130px;overflow-y:auto;z-index:5;font-size:10px;color:rgba(255,255,255,0.45);pointer-events:none}#log .line{padding:1px 0;border-bottom:1px solid rgba(255,255,255,0.03)}#log .line.user{color:#c084fc;text-align:right}#log .line.ai{color:#67e8f9}#log .line.task{color:#fbbf24}#log .line.err{color:#f87171}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-void);color:var(--text);font-family:var(--font-ui);-webkit-tap-highlight-color:transparent;user-select:none}
+#app{position:relative;width:100vw;height:100vh;background:var(--bg-void)}
+#orb{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+#status{position:absolute;top:max(18px,env(safe-area-inset-top));right:18px;width:11px;height:11px;border-radius:50%;background:var(--c-violet);box-shadow:0 0 10px var(--c-violet),0 0 24px rgba(139,92,246,.5);z-index:10;transition:all .3s ease}
+#status.wake{background:var(--c-violet-lt);box-shadow:0 0 10px var(--c-violet-lt),0 0 24px rgba(167,139,250,.5)}
+#status.listening{background:var(--c-green);box-shadow:0 0 12px var(--c-green),0 0 26px rgba(16,185,129,.55)}
+#status.thinking{background:var(--c-indigo);box-shadow:0 0 12px var(--c-indigo),0 0 26px rgba(99,102,241,.55)}
+#status.speaking{background:var(--c-cyan);box-shadow:0 0 12px var(--c-cyan),0 0 26px rgba(6,182,212,.55)}
+#stateText{position:absolute;top:max(12px,env(safe-area-inset-top));right:37px;z-index:10;color:var(--text-2);font-size:11px;line-height:22px;text-align:right;text-transform:uppercase;font-family:var(--font-dp);font-weight:500;letter-spacing:.5px}
+.left-controls{position:absolute;top:max(14px,env(safe-area-inset-top));left:16px;z-index:10;display:flex;flex-direction:column;gap:6px}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;background:var(--btn-bg);color:var(--text-2);font-family:var(--font-ui);font-size:11px;font-weight:500;padding:7px 10px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:transform .15s ease,background .2s ease,border-color .2s ease;cursor:pointer}
+.pill:active{transform:scale(.93);background:rgba(20,10,30,.6)}
+.pill svg{width:13px;height:13px;flex-shrink:0;opacity:.65;transition:opacity .2s ease}
+.pill.active svg{opacity:1}
+#quality{border:1px solid rgba(139,92,246,.32)}
+#overlayBtn{border:1px solid rgba(6,182,212,.28)}
+#wakeBtn{border:1px solid rgba(16,185,129,.28)}
+#wakeBtn.active{border-color:rgba(16,185,129,.6);color:rgba(16,185,129,.95);box-shadow:0 0 14px rgba(16,185,129,.2)}
+#settingsBtn{border:1px solid rgba(99,102,241,.28)}
+#settingsPanel{position:absolute;inset:0;z-index:100;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center}
+.panel-card{background:var(--bg-surface);border:1px solid var(--glass-bd);border-radius:16px;padding:20px;width:78%;max-width:320px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.panel-label{font-size:12px;color:var(--text-2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;font-family:var(--font-dp);font-weight:500}
+.panel-card input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--glass-bd);background:var(--bg-input);color:var(--text);font-size:14px;font-family:var(--font-ui);box-sizing:border-box;outline:none;transition:border-color .2s ease}
+.panel-card input:focus{border-color:var(--c-indigo)}
+.panel-btns{display:flex;gap:10px;margin-top:14px}
+.panel-btns button{flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:500;font-family:var(--font-ui);cursor:pointer;transition:all .15s ease}
+.panel-btns button:active{transform:scale(.96)}
+#relaySave{background:var(--c-indigo);color:#fff}
+#relayClose{background:rgba(255,255,255,.1);color:var(--text-2)}
+#log{position:absolute;left:12px;right:12px;bottom:max(28px,env(safe-area-inset-bottom));max-height:280px;overflow-y:auto;z-index:5;font-size:12px;line-height:1.5;color:var(--text-3);font-family:var(--font-ui);background:rgba(3,0,8,.65);border:1px solid rgba(139,92,246,.12);border-radius:14px;padding:10px 12px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);scrollbar-width:thin;scrollbar-color:rgba(139,92,246,.3) transparent;-webkit-user-select:text;user-select:text}
+#log::-webkit-scrollbar{width:4px}#log::-webkit-scrollbar-track{background:transparent}#log::-webkit-scrollbar-thumb{background:rgba(139,92,246,.25);border-radius:2px}
+#log .line{padding:6px 10px;border-radius:8px;margin-bottom:3px;white-space:normal;word-break:break-word;animation:logIn .25s ease}
+#log .user{color:var(--c-purple);background:rgba(139,92,246,.1);text-align:right}
+#log .ai{color:#67e8f9;background:rgba(6,182,212,.08)}
+#log .task{color:var(--c-amber);background:rgba(251,191,36,.08)}
+#log .err{color:var(--c-red);background:rgba(248,113,113,.1)}
+@keyframes logIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
-<div id="app"><div id="status" class="idle"></div><canvas id="orb"></canvas><div id="mic">🎤</div><div id="log"></div></div>
+<div id="app">
+  <div class="left-controls">
+    <button id="quality" class="pill" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 14a9 9 0 0 1 18 0"/><path d="M12 14l3-3"/></svg><span class="lbl">60 FPS</span></button>
+    <button id="overlayBtn" class="pill" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="9" stroke-opacity=".4"/></svg><span class="lbl">pet</span></button>
+    <button id="wakeBtn" class="pill" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg><span class="lbl">wake</span></button>
+    <button id="settingsBtn" class="pill" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14.11 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span class="lbl">url</span></button>
+  </div>
+  <div id="stateText">standby</div>
+  <div id="status" class="wake"></div>
+  <canvas id="orb"></canvas>
+  <div id="log"></div>
+  <div id="settingsPanel"><div class="panel-card"><div class="panel-label">Relay URL</div><input id="relayInput" type="text" placeholder="http://100.95.124.3:9091" autocapitalize="off" autocorrect="off" spellcheck="false"><div class="panel-btns"><button id="relaySave" type="button">저장</button><button id="relayClose" type="button">닫기</button></div></div></div>
+</div>
 <script>
-// ===== STATE =====
-const STATES={IDLE:'idle',LISTENING:'listening',THINKING:'thinking',EXECUTING:'executing',SPEAKING:'speaking'};
+const STATES={IDLE:"idle",WAKE:"wake",LISTENING:"listening",THINKING:"thinking",SPEAKING:"speaking"};
+let RELAY_URL=localStorage.getItem("sentinel_relay_url")||"http://100.95.124.3:9091";
+function isWakeWord(text){const t=text.replace(/\s/g,"").toLowerCase();return /센티넬|센티널|쎈티넬|쎈티널|센티날|쎈티날|센치넬|센치널|sentinel|주피터|쥬피터|jupiter/.test(t)}
+const statusEl=document.getElementById("status");
+const stateText=document.getElementById("stateText");
+const logEl=document.getElementById("log");
+const qualityBtn=document.getElementById("quality");
+const overlayBtn=document.getElementById("overlayBtn");
+const wakeBtn=document.getElementById("wakeBtn");
+const settingsBtn=document.getElementById("settingsBtn");
+const settingsPanel=document.getElementById("settingsPanel");
+const relayInput=document.getElementById("relayInput");
+function setBtnText(btn,text){var s=btn.querySelector(".lbl");if(s)s.textContent=text}
+function getBtnText(btn){var s=btn.querySelector(".lbl");return s?s.textContent:""}
 let state=STATES.IDLE;
-const status=document.getElementById('status'),mic=document.getElementById('mic'),logEl=document.getElementById('log');
-
-function setState(s){state=s;status.className=s;mic.className=s==='listening'?'listening':'';mic.textContent=s==='listening'?'🔴':s==='thinking'?'💭':s==='speaking'?'🔊':'🎤'}
-function addLog(msg,cls=''){const d=document.createElement('div');d.className='line '+cls;d.textContent=msg;logEl.appendChild(d);logEl.scrollTop=logEl.scrollHeight;while(logEl.children.length>30)logEl.firstChild.remove()}
-
-// ===== WEB SPEECH API (native, no system dialog) =====
-let recognition=null;
+let recognition=null,wakeRecognition=null,wakeEnabled=false,nativeWake=false;
 let cooldownUntil=0;
+let wakePermissionBlocked=false;
 
+const qualityModes=[
+  {name:"CINEMATIC",scale:1.15,stars:70,edgeStep:1,glow:4,sub:1},
+  {name:"BALANCED",scale:0.95,stars:54,edgeStep:2,glow:3,sub:1},
+  {name:"SAVER",scale:0.72,stars:36,edgeStep:3,glow:2,sub:.75}
+];
+let qualityIndex=Number(localStorage.getItem("sentinel_quality")||0);
+if(!Number.isFinite(qualityIndex)||qualityIndex<0||qualityIndex>=qualityModes.length)qualityIndex=0;
+let dynamicDrop=0;
+
+function logNative(msg){if(typeof Console!=="undefined")Console.log(msg)}
+function setState(next){
+  state=next;
+  statusEl.className=next===STATES.IDLE?"wake":next;
+  const labels={idle:"standby",wake:"wake",listening:"listening",thinking:"thinking",speaking:"speaking"};
+  stateText.textContent=labels[next]||"standby";
+}
+function setStatusText(text){stateText.textContent=text}
+function stripMd(t){return t.replace(/```[\s\S]*?```/g," ").replace(/`([^`]+)`/g,"$1").replace(/\*\*([^*]+)\*\*/g,"$1").replace(/\*([^*]+)\*/g,"$1").replace(/^#{1,6}\s+/gm,"").replace(/^[-*]\s+/gm,"").replace(/^\d+\.\s+/gm,"").replace(/^>\s+/gm,"").replace(/\[([^\]]*)\]\([^)]*\)/g,"$1").replace(/!\[.*?\]\([^)]*\)/g,"").replace(/[*_~|#>`]/g,"").replace(/\n{2,}/g,". ").replace(/\s{2,}/g," ").trim()}
+function renderMd(t){let h=t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");h=h.replace(/```([\s\S]*?)```/g,(m,c)=>"<pre style='background:rgba(0,0,0,.3);padding:6px 8px;border-radius:6px;overflow-x:auto;font-size:11px;margin:4px 0'>"+c.trim()+"</pre>");h=h.replace(/`([^`]+)`/g,"<code style='background:rgba(139,92,246,.15);padding:1px 4px;border-radius:3px;font-size:12px'>$1</code>");h=h.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");h=h.replace(/(^|[^*])\*([^*]+)\*/g,"$1<em>$2</em>");h=h.replace(/^### (.+)$/gm,"<div style='font-weight:600;font-size:13px;margin-top:4px'>$1</div>");h=h.replace(/^## (.+)$/gm,"<div style='font-weight:700;font-size:14px;margin-top:4px'>$1</div>");h=h.replace(/^# (.+)$/gm,"<div style='font-weight:700;font-size:15px;margin-top:6px'>$1</div>");h=h.replace(/^[-*] (.+)$/gm,"<div style='padding-left:12px'>• $1</div>");h=h.replace(/^\d+\. (.+)$/gm,"<div style='padding-left:12px'>$1</div>");h=h.replace(/^> (.+)$/gm,"<div style='border-left:2px solid rgba(139,92,246,.4);padding-left:8px;margin:2px 0;opacity:.8'>$1</div>");h=h.replace(/\n/g,"<br>");h=h.replace(/(<br>){3,}/g,"<br><br>");return h}
+function addLog(msg,cls=""){
+  const d=document.createElement("div");
+  d.className="line "+cls;
+  if(cls==="ai")d.innerHTML=renderMd(msg);else d.textContent=msg;
+  logEl.appendChild(d);
+  while(logEl.children.length>20)logEl.firstChild.remove();
+  logEl.scrollTop=logEl.scrollHeight;
+}
+function updateQualityLabel(){
+  setBtnText(qualityBtn,"60 FPS / "+qualityModes[qualityIndex].name+(dynamicDrop?" - ADAPT":""));
+}
+qualityBtn.addEventListener("click",()=>{
+  qualityIndex=(qualityIndex+1)%qualityModes.length;
+  dynamicDrop=0;
+  localStorage.setItem("sentinel_quality",String(qualityIndex));
+  resize();
+  updateQualityLabel();
+});
+updateQualityLabel();
+function startOverlayPet(){
+  if(typeof NativeOverlay==="undefined")return false;
+  try{
+    const ok=NativeOverlay.start();
+    setBtnText(overlayBtn,ok?"pet on":"pet permission");
+    return ok;
+  }catch(e){
+    logNative("Overlay start failed: "+e.message);
+    setBtnText(overlayBtn,"pet off");
+    return false;
+  }
+}
+function stopOverlayPet(){
+  if(typeof NativeOverlay!=="undefined")try{NativeOverlay.stop()}catch(e){}
+  setBtnText(overlayBtn,"pet");
+}
+overlayBtn.addEventListener("click",e=>{
+  e.stopPropagation();
+  if(getBtnText(overlayBtn)==="pet on")stopOverlayPet();
+  else startOverlayPet();
+});
+window.startOverlayPet=startOverlayPet;
+function isWakeEnabled(){return localStorage.getItem("sentinel_native_wake")!=="off"}
+function updateWakeLabel(){setBtnText(wakeBtn,isWakeEnabled()?"wake on":"wake off");wakeBtn.classList.toggle("active",isWakeEnabled())}
+wakeBtn.addEventListener("click",e=>{
+  e.stopPropagation();
+  const enable=!isWakeEnabled();
+  localStorage.setItem("sentinel_native_wake",enable?"on":"off");
+  updateWakeLabel();
+  if(enable){startWakeWord()}else{stopWakeWord();setState(STATES.IDLE);setStatusText("wake off")}
+});
+updateWakeLabel();
+settingsBtn.addEventListener("click",e=>{
+  e.stopPropagation();
+  relayInput.value=RELAY_URL;
+  settingsPanel.style.display="flex";
+  relayInput.focus();
+});
+document.getElementById("relaySave").addEventListener("click",e=>{
+  e.stopPropagation();
+  const v=relayInput.value.trim();
+  if(v){localStorage.setItem("sentinel_relay_url",v);RELAY_URL=v;logNative("Relay URL set: "+v);addLog("relay: "+v,"task")}
+  settingsPanel.style.display="none";
+});
+document.getElementById("relayClose").addEventListener("click",e=>{
+  e.stopPropagation();
+  settingsPanel.style.display="none";
+});
+
+function speechCtor(){return window.SpeechRecognition||window.webkitSpeechRecognition}
 function initRecognition(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){addLog('Speech API not available','err');return false}
-  const r=new SR();
-  r.continuous=false;
-  r.interimResults=false;
-  r.lang='ko-KR';
-  r.onresult=e=>{
+  const SR=speechCtor();
+  if(!SR){setStatusText("speech unavailable");return false}
+  recognition=new SR();
+  recognition.continuous=false;
+  recognition.interimResults=false;
+  recognition.lang="ko-KR";
+  recognition.onresult=e=>{
     const text=e.results[0][0].transcript.trim();
-    if(typeof Console!=='undefined')Console.log('WebSpeech result: '+text);
-    if(text)onSpeechResult(text);
+    logNative("Command result: "+text);
+    if(text)processCommand(text);
   };
-  r.onerror=e=>{
-    if(typeof Console!=='undefined')Console.log('WebSpeech error: '+e.error);
-    addLog('Speech err: '+e.error,'err');
-    onSpeechError();
+  recognition.onerror=e=>{
+    logNative("Command speech error: "+e.error);
+    setStatusText("speech error");
+    setState(STATES.IDLE);
+    restartWakeWord();
   };
-  r.onend=()=>{
-    if(typeof Console!=='undefined')Console.log('WebSpeech ended, state='+state);
+  recognition.onend=()=>{
+    logNative("Command speech ended state="+state);
     if(state===STATES.LISTENING)setState(STATES.IDLE);
+    if(state===STATES.IDLE)setTimeout(restartWakeWord,1200);
   };
-  recognition=r;
   return true;
 }
-
+function stopWakeWord(){
+  wakeEnabled=false;
+  if(nativeWake&&typeof NativeWake!=="undefined")try{NativeWake.stop()}catch(e){}
+  if(wakeRecognition)try{wakeRecognition.abort()}catch(e){}
+}
+function startWakeWord(){
+  wakeEnabled=true;
+  wakePermissionBlocked=false;
+  setState(STATES.IDLE);
+  if(!isWakeEnabled()){
+    logNative("Native wake disabled for quiet standby");
+    return;
+  }
+  if(typeof NativeWake!=="undefined"){
+    try{
+      if(NativeWake.start()){
+        nativeWake=true;
+        logNative("Native wake active");
+        return;
+      }
+    }catch(e){
+      nativeWake=false;
+      logNative("Native wake unavailable: "+e.message);
+    }
+  }
+  nativeWake=false;
+  const SR=speechCtor();
+  if(!SR){setStatusText("wake unavailable");return}
+  if(!wakeRecognition){
+    wakeRecognition=new SR();
+    wakeRecognition.continuous=true;
+    wakeRecognition.interimResults=true;
+    wakeRecognition.lang="ko-KR";
+    wakeRecognition.onresult=e=>{
+      if(!wakeEnabled||state!==STATES.IDLE)return;
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const text=e.results[i][0].transcript.trim();
+        if(text)logNative("Wake heard: "+text);
+        if(isWakeWord(text)){
+          setStatusText("wake detected");
+          stopWakeWord();
+          setTimeout(startListening,180);
+          break;
+        }
+      }
+    };
+    wakeRecognition.onerror=e=>{
+      logNative("Wake error: "+e.error);
+      if(e.error==="not-allowed"||e.error==="service-not-allowed"){
+        wakeEnabled=false;
+        wakePermissionBlocked=true;
+        setStatusText("mic permission");
+        return;
+      }
+      if(wakeEnabled)setTimeout(restartWakeWord,1200);
+    };
+    wakeRecognition.onend=()=>{
+      if(wakeEnabled&&state===STATES.IDLE)setTimeout(restartWakeWord,350);
+    };
+  }
+  try{
+    wakeRecognition.start();
+    logNative("Wake word active");
+  }catch(e){
+    logNative("Wake start skipped: "+e.message);
+  }
+}
+function restartWakeWord(){
+  if(state!==STATES.IDLE||wakePermissionBlocked)return;
+  startWakeWord();
+}
+window.onNativeWakeHeard=text=>{
+  if(!wakeEnabled||state!==STATES.IDLE||!text)return;
+  if(isWakeWord(text)){
+    logNative("Native wake heard: "+text);
+    setStatusText("wake detected");
+    stopWakeWord();
+    setTimeout(startListening,180);
+  }
+};
+window.onNativeWakeStopped=()=>{
+  wakeEnabled=false;
+  nativeWake=false;
+  setState(STATES.IDLE);
+  logNative("Native wake stopped: quiet standby");
+  updateWakeLabel();
+};
 function startListening(){
   if(state!==STATES.IDLE)return;
   if(Date.now()<cooldownUntil)return;
-  cooldownUntil=Date.now()+2000;
-
+  stopWakeWord();
   if(!recognition&&!initRecognition()){setState(STATES.IDLE);return}
   try{
-    if(typeof Console!=='undefined')Console.log('WebSpeech starting...');
     setState(STATES.LISTENING);
-    addLog('🎤 Listening...','');
     recognition.start();
   }catch(e){
-    if(typeof Console!=='undefined')Console.log('WebSpeech start error: '+e);
-    addLog('Speech start err','err');
+    setStatusText("speech start failed");
+    logNative("Command start error: "+e.message);
     setState(STATES.IDLE);
+    restartWakeWord();
   }
 }
+window.startListening=startListening;
+window.startWakeWord=startWakeWord;
 
-function onSpeechResult(text){
-  if(!text)return;
-  addLog(text,'user');
-  processCommand(text);
-}
-
-function onSpeechError(){
-  if(state===STATES.LISTENING)setState(STATES.IDLE);
-}
-window.onSpeechResult=onSpeechResult;
-window.onSpeechError=onSpeechError;
-
-// ===== PROCESS =====
 function processCommand(text){
-  setState(STATES.THINKING);addLog('🤔 Processing...','');
-  const tid=spawnSubOrb('Analyzing: '+text.slice(0,18),'code');
-  showFilePreview(tid,'voice_cmd.txt','reading');
-  setTimeout(()=>hideFilePreview(tid,'voice_cmd.txt'),1500);
-  setTimeout(()=>updateSubOrb(tid,{status:'done'}),2000);
-
-  const RELAY_URL='http://100.95.124.3:9091';
-  const TTS_URL='http://100.95.124.3:9092';
-  fetch(RELAY_URL+'/api/chat',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({message:text,provider:'zai',model:'glm-5.1'})
+  setState(STATES.THINKING);
+  addLog(text,"user");
+  fetch(RELAY_URL+"/api/chat",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({message:text,provider:"zai",model:"glm-5.1"})
   })
   .then(r=>r.json())
   .then(data=>{
-    const reply=data.response||data.text||data.message||'응답을 받지 못했습니다.';
-    addLog(reply,'ai');
-    if(typeof Console!=='undefined')Console.log('Relay reply: '+reply.slice(0,40));
-    setState(STATES.SPEAKING);
+    const reply=data.response||data.text||data.message||"응답을 받지 못했습니다.";
+    addLog(reply,"ai");
+    logNative("Relay reply: "+reply.slice(0,80));
     speak(reply);
   })
   .catch(e=>{
-    if(typeof Console!=='undefined')Console.log('Relay error: '+e.message);
-    addLog('Relay err: '+e.message,'err');
-    const demo=generateDemo(text);
-    addLog(demo,'ai');
-    setState(STATES.SPEAKING);
-    speak(demo);
+    logNative("Relay error: "+e.message);
+    addLog("릴레이에 연결하지 못했습니다.","ai");
+    speak("릴레이에 연결하지 못했습니다.");
   });
 }
-
-function generateDemo(t){const l=t.toLowerCase();if(/상태|status/.test(l))return 'CPU 12% · RAM 3.4G/11.6G · Disk 31% — 모두 정상입니다';if(/안녕|반가|hello/.test(l))return '안녕하세요 일신님! 무엇을 도와드릴까요?';if(/시간|몇 시/.test(l))return '현재 '+new Date().toLocaleTimeString('ko-KR')+' 입니다.';return '이해했습니다. (데모 모드)'}
-
-// ===== TTS with proper Android WebView init =====
-let ttsReady=false,ttsSupported=typeof speechSynthesis!=='undefined';
-if(ttsSupported){
-speechSynthesis.onvoiceschanged=()=>{
-  const voices=speechSynthesis.getVoices();
-  ttsReady=voices.length>0;
-  if(typeof Console!=='undefined')Console.log('TTS voices loaded: '+voices.length);
-};
-speechSynthesis.getVoices();
-}else{if(typeof Console!=='undefined')Console.log('TTS not available (speechSynthesis undefined)');}
-
+function stopSpeech(){
+  if(typeof NativeTTS!=="undefined")NativeTTS.stop();
+  if(typeof speechSynthesis!=="undefined")speechSynthesis.cancel();
+}
 function speak(text){
-  if(!ttsSupported){
-    if(typeof Console!=='undefined')Console.log('TTS skipped: not supported');
-    setState(STATES.IDLE);cooldownUntil=Date.now()+1500;
+  text=stripMd(text);
+  setState(STATES.SPEAKING);
+  if(typeof NativeTTS!=="undefined"){
+    if(NativeTTS.speak(text)){
+      logNative("NativeTTS speak");
+      return;
+    }
+    logNative("NativeTTS unavailable; reply shown in overlay/log");
+    onSpeechFinished();
     return;
   }
-  setState(STATES.SPEAKING);
-  if(typeof Console!=='undefined')Console.log('TTS speak: '+text.slice(0,40));
+  if(typeof speechSynthesis==="undefined"){
+    setStatusText("tts unavailable");
+    onSpeechFinished();
+    return;
+  }
   speechSynthesis.cancel();
-  const su=new SpeechSynthesisUtterance(text);
-  su.lang='ko-KR';su.rate=1.0;su.pitch=1.0;su.volume=1.0;
-  su.onstart=()=>{if(typeof Console!=='undefined')Console.log('TTS started')};
-  su.onend=()=>{
-    if(typeof Console!=='undefined')Console.log('TTS ended');
-    setState(STATES.IDLE);cooldownUntil=Date.now()+1500;
-  };
-  su.onerror=e=>{
-    if(typeof Console!=='undefined')Console.log('TTS error: '+e.error);
-    addLog('TTS err: '+e.error,'err');
-    setState(STATES.IDLE);
-  };
-  speechSynthesis.speak(su);
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang="ko-KR";
+  u.onend=onSpeechFinished;
+  u.onerror=onSpeechFinished;
+  speechSynthesis.speak(u);
 }
-
-// ===== INTERRUPT: tap during speaking/thinking =====
+function onSpeechFinished(){
+  setState(STATES.IDLE);
+  cooldownUntil=Date.now()+900;
+  setTimeout(restartWakeWord,950);
+}
+window.onNativeTtsDone=onSpeechFinished;
+window.onNativeTtsError=onSpeechFinished;
 function handleTap(){
-  if(typeof Console!=='undefined')Console.log('handleTap state='+state);
-  if(state===STATES.IDLE){
-    startListening();
-  }else if(state===STATES.SPEAKING||state===STATES.THINKING){
-    // Interrupt: stop everything, start fresh listening
-    speechSynthesis.cancel();
+  logNative("handleTap state="+state);
+  if(state===STATES.IDLE)startListening();
+  else if(state===STATES.SPEAKING||state===STATES.THINKING){
+    stopSpeech();
     if(recognition)try{recognition.abort()}catch(e){}
     setState(STATES.IDLE);
-    addLog('⏹ Interrupted','task');
-    setTimeout(()=>startListening(),300);
+    setStatusText("interrupted");
+    setTimeout(startListening,180);
   }
 }
 window.handleTap=handleTap;
 
-// ===== TAP =====
-mic.addEventListener('click',e=>{
-  e.stopPropagation();
-  handleTap();
-});
-
-// ===== SUB-AGENT ORBS =====
-let subOrbs=[],nextOrbId=0;
-function spawnSubOrb(name,type='task'){
-  const id=++nextOrbId;
-  const colors={task:'#f59e0b',code:'#6366f1',review:'#06b6d4',research:'#10b981',build:'#f97316'};
-  const icons={task:'📋',code:'💻',review:'🔍',research:'📚',build:'🔧'};
-  subOrbs.push({id,name,type,color:colors[type]||'#8b5cf6',icon:icons[type]||'⚡',
-    angle:Math.random()*Math.PI*2,radius:140+Math.random()*70,speed:0.3+Math.random()*0.5,
-    alpha:0,targetAlpha:1,scale:0,targetScale:1,createdAt:performance.now(),files:[],pulse:0,state:'working'});
-  addLog(`⬤ ${name} started`,'task');return id;
+const canvas=document.getElementById("orb");
+const ctx=canvas.getContext("2d",{alpha:true,desynchronized:true});
+let W=0,H=0,DPR=1,T=0,lastFrame=performance.now(),avgFrame=16.7;
+let audioLevel=0,targetAudio=0,breath=0,mx=.5,my=.5,tmx=.5,tmy=.5,burstParticles=[],transitionFlash=0,prevDrawState=STATES.IDLE;
+let stars=[],edges=[];
+function activeQuality(){
+  const base=qualityModes[qualityIndex];
+  if(!dynamicDrop)return base;
+  return {...base,scale:Math.max(.66,base.scale-dynamicDrop*.16),stars:Math.max(32,base.stars-dynamicDrop*12),edgeStep:Math.min(4,base.edgeStep+dynamicDrop),glow:Math.max(2,base.glow-dynamicDrop)};
 }
-function updateSubOrb(id,u){const o=subOrbs.find(o=>o.id===id);if(!o)return;Object.assign(o,u);if(u.status==='done'){o.targetAlpha=0;o.targetScale=0;addLog(`✅ ${o.name} done`,'task')}}
-function dismissSubOrb(id){const o=subOrbs.find(o=>o.id===id);if(o){o.targetAlpha=0;o.targetScale=0;setTimeout(()=>{subOrbs=subOrbs.filter(s=>s.id!==id)},800)}}
-function showFilePreview(orbId,filename,action='reading'){
-  const orb=subOrbs.find(o=>o.id===orbId);if(!orb)return;
-  const ext=filename.split('.').pop();
-  const icons={js:'📜',py:'🐍',html:'🌐',css:'🎨',md:'📝',json:'⚙️',png:'🖼️',java:'☕',kt:'💜',txt:'📄'};
-  const actions={reading:'👀',writing:'✏️',executing:'▶️'};
-  orb.files.push({name:filename.length>16?filename.slice(0,14)+'..':filename,icon:icons[ext]||'📄',action:actions[action]||'📂',alpha:0,targetAlpha:1,createdAt:performance.now()});
+function resize(){
+  const q=activeQuality();
+  const maxDpr=Math.min(window.devicePixelRatio||1,q.scale);
+  DPR=maxDpr;
+  W=innerWidth;H=innerHeight;
+  canvas.width=Math.floor(W*DPR);
+  canvas.height=Math.floor(H*DPR);
+  canvas.style.width=W+"px";
+  canvas.style.height=H+"px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  rebuildField();
 }
-function hideFilePreview(orbId,filename){
-  const orb=subOrbs.find(o=>o.id===orbId);if(!orb)return;
-  const f=orb.files.find(f=>f.name.includes(filename.slice(0,10)));if(f){f.targetAlpha=0;setTimeout(()=>{orb.files=orb.files.filter(x=>x!==f)},600)}
+function rebuildField(){
+  const q=activeQuality();
+  stars=Array.from({length:q.stars},()=>({angle:Math.random()*Math.PI*2,radius:60+Math.random()*210,angSpeed:.015+Math.random()*.05,angPhase:Math.random()*Math.PI*2,angWobble:.25+Math.random()*.85,angWobbleFreq:.12+Math.random()*.55,osc:.3+Math.random()*1.2,osc2:.7+Math.random()*2.8,oscAmp:6+Math.random()*20,size:.55+Math.random()*2.6,alpha:.18+Math.random()*.78,hue:Math.random()<.55?270:190,flicker:Math.random()*Math.PI*2,fs:.02+Math.random()*.06,tilt:.22+Math.random()*.38,sparkPhase:0,sparkTimer:1+Math.random()*9}));
+  edges=[];
+  for(let i=0;i<stars.length;i+=q.edgeStep)for(let j=i+1;j<stars.length;j+=q.edgeStep){const dr=Math.abs(stars[i].radius-stars[j].radius),da=Math.abs(stars[i].angle-stars[j].angle);if(Math.sqrt(dr*dr+da*da*45)<42&&Math.random()<.12)edges.push({a:i,b:j,alpha:.03+Math.random()*.06})}
 }
-window.SentinelAPI={spawnSubOrb,updateSubOrb,dismissSubOrb,showFilePreview,hideFilePreview,addLog:(m,c)=>addLog(m,c),setState:s=>setState(s)};
-
-// ===== JARVIS ORB CANVAS =====
-const canvas=document.getElementById('orb'),ctx=canvas.getContext('2d');
-let W,H,T=0,audioLevel=0,targetAudio=0,breath=0,mx=0.5,my=0.5,tmx=0.5,tmy=0.5;
-function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
-resize();addEventListener('resize',resize);
-addEventListener('pointermove',e=>{tmx=e.clientX/innerWidth;tmy=e.clientY/innerHeight});
-const stars=Array.from({length:70},()=>({angle:Math.random()*Math.PI*2,radius:60+Math.random()*200,speed:.06+Math.random()*.4,osc:.3+Math.random()*1.2,size:.6+Math.random()*3,alpha:.2+Math.random()*.8,hue:Math.random()<.55?270:190,flicker:Math.random()*Math.PI*2,fs:.02+Math.random()*.06,tilt:.2+Math.random()*.4}));
-const edges=[];for(let i=0;i<stars.length;i++)for(let j=i+1;j<stars.length;j++){const dr=Math.abs(stars[i].radius-stars[j].radius),da=Math.abs(stars[i].angle-stars[j].angle);if(Math.sqrt(dr*dr+da*da*45)<40&&Math.random()<.1)edges.push({a:i,b:j,alpha:.03+Math.random()*.06})}
-function starPath(ctx,x,y,r){ctx.beginPath();for(let i=0;i<8;i++){const rr=i%2===0?r*2.5:r*.5,a=i*Math.PI/4-Math.PI/2;ctx[i?'lineTo':'moveTo'](x+Math.cos(a)*rr,y+Math.sin(a)*rr)}ctx.closePath()}
-function rgba(c,a){return c.replace('rgb','rgba').replace(')',','+a+')')}
-function drawOrb(cx,cy,radius,color,alpha,scale){
-  const r=Math.max(1.5,radius*scale), a=alpha;
-  if(a<0.005||r<1.5)return;
-  for(let l=4;l>=0;l--){
-    const lr=Math.max(0.2,r+l*18+Math.sin(T*1.5+l)*5);
-    const g=ctx.createRadialGradient(cx,cy,lr*.1,cx,cy,lr);
-    g.addColorStop(0,rgba(color,(.14-l*.02)*a));g.addColorStop(.5,rgba(color,(.06-l*.01)*a));g.addColorStop(1,'transparent');
-    ctx.beginPath();ctx.arc(cx,cy,lr,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
-  }
-  const core=ctx.createRadialGradient(cx-3,cy-4,2,cx,cy,r*.85);
-  core.addColorStop(0,`rgba(255,255,255,${.9*a})`);core.addColorStop(.12,`rgba(230,220,255,${.7*a})`);core.addColorStop(.35,rgba(color,.3*a));core.addColorStop(.7,rgba(color,.06*a));core.addColorStop(1,'transparent');
-  ctx.beginPath();ctx.arc(cx,cy,r*.85,0,Math.PI*2);ctx.fillStyle=core;ctx.fill();
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle=rgba(color,.2*a);ctx.lineWidth=1.5;ctx.stroke();
+addEventListener("resize",resize);
+addEventListener("pointermove",e=>{tmx=e.clientX/innerWidth;tmy=e.clientY/innerHeight});
+function rgba(c,a){return c.replace("rgb","rgba").replace(")",","+a+")")}
+function starPath(x,y,r){ctx.beginPath();for(let i=0;i<8;i++){const rr=i%2===0?r*2.5:r*.5,a=i*Math.PI/4-Math.PI/2;ctx[i?"lineTo":"moveTo"](x+Math.cos(a)*rr,y+Math.sin(a)*rr)}ctx.closePath()}
+function drawOrb(cx,cy,radius,color,alpha,scale,layers){
+  const r=Math.max(1.5,radius*scale),a=alpha;
+  for(let l=layers;l>=0;l--){const lr=r+l*16+Math.sin(T*1.5+l)*4,g=ctx.createRadialGradient(cx,cy,lr*.08,cx,cy,lr);g.addColorStop(0,rgba(color,(.13-l*.018)*a));g.addColorStop(.55,rgba(color,(.052-l*.008)*a));g.addColorStop(1,"transparent");ctx.beginPath();ctx.arc(cx,cy,lr,0,Math.PI*2);ctx.fillStyle=g;ctx.fill()}
+  const core=ctx.createRadialGradient(cx-3,cy-4,2,cx,cy,r*.86);
+  core.addColorStop(0,`rgba(255,255,255,${.92*a})`);core.addColorStop(.13,`rgba(230,220,255,${.72*a})`);core.addColorStop(.36,rgba(color,.3*a));core.addColorStop(.72,rgba(color,.06*a));core.addColorStop(1,"transparent");
+  ctx.beginPath();ctx.arc(cx,cy,r*.86,0,Math.PI*2);ctx.fillStyle=core;ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle=rgba(color,.22*a);ctx.lineWidth=1.3;ctx.stroke();
 }
-function drawFileIcon(cx,cy,file,alpha,now){if(alpha<.02)return;const fy=cy-30-Math.sin((now-file.createdAt)*.003)*8;ctx.globalAlpha=alpha;ctx.font=`${11*devicePixelRatio}px sans-serif`;ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.8)';ctx.fillText(file.action+' '+file.icon,cx,fy-8);ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillText(file.name,cx,fy+10);ctx.globalAlpha=1}
-function draw(){
-  T+=.016;mx+=(tmx-mx)*.04;my+=(tmy-my)*.04;
-  if(state===STATES.SPEAKING)targetAudio=.5+Math.sin(T*8)*.3;else if(state===STATES.LISTENING)targetAudio=.3+Math.sin(T*5)*.2;else targetAudio=0;
-  audioLevel+=(targetAudio-audioLevel)*.1;breath=Math.sin(T*.8)*.5+.5;
-  ctx.clearRect(0,0,W,H);const cx=W/2+(mx-.5)*40,cy=H/2-H*.05+(my-.5)*20;
-  const bg=ctx.createRadialGradient(cx,cy,40,cx,cy,W*.55);bg.addColorStop(0,'rgba(99,102,241,.07)');bg.addColorStop(.35,'rgba(99,102,241,.015)');bg.addColorStop(1,'transparent');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
-  const pts=stars.map(s=>{const a=s.angle+T*s.speed*.25,r=s.radius+Math.sin(T*s.osc+s.flicker)*16;return{x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r*s.tilt,size:s.size,alpha:s.alpha,hue:s.hue,fs:s.fs,flicker:s.flicker}});
+function draw(now){
+  const dt=Math.min(34,now-lastFrame||16.7);
+  lastFrame=now;
+  avgFrame=avgFrame*.95+dt*.05;
+  if(avgFrame>22&&dynamicDrop<2){dynamicDrop++;resize();updateQualityLabel()}
+  T+=dt/1000;mx+=(tmx-mx)*.04;my+=(tmy-my)*.04;
+  if(state===STATES.IDLE){targetAudio=.06+Math.sin(T*.7)*.02+Math.sin(T*1.3)*.015;breath=Math.sin(T*.8)*.5+.5+Math.sin(T*.37)*.1}
+  else if(state===STATES.LISTENING){targetAudio=.3+Math.sin(T*6)*.15+Math.sin(T*11)*.08;breath=.6+Math.sin(T*2)*.2}
+  else if(state===STATES.THINKING){const hb=T*1.5%1;const thump=hb<.1?Math.sin(hb*Math.PI/.1):hb<.25?Math.sin((hb-.1)*Math.PI/.15)*.6:0;targetAudio=.15+thump*.25;breath=.5+thump*.3}
+  else if(state===STATES.SPEAKING){targetAudio=.4+Math.sin(T*5)*.2+Math.sin(T*9)*.1;breath=.55+Math.sin(T*3)*.15}
+  else{targetAudio=0;breath=Math.sin(T*.8)*.5+.5}
+  audioLevel+=(targetAudio-audioLevel)*.12;
+  const q=activeQuality(),cx=W/2+(mx-.5)*34,cy=H/2-H*.07+(my-.5)*18;
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(cx,cy,40,cx,cy,W*.52);bg.addColorStop(0,"rgba(99,102,241,.06)");bg.addColorStop(.38,"rgba(99,102,241,.014)");bg.addColorStop(1,"transparent");ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  if(state!==prevDrawState){const bc={idle:"139,92,246",wake:"167,139,250",listening:"16,185,129",thinking:"99,102,241",speaking:"6,182,212"}[state]||"139,92,246";for(let i=0;i<24;i++){const ba=Math.random()*Math.PI*2;burstParticles.push({x:cx,y:cy,vx:Math.cos(ba)*(3+Math.random()*5),vy:Math.sin(ba)*(3+Math.random()*5),life:1,rgb:bc})}transitionFlash=1;prevDrawState=state}
+  transitionFlash*=.9;
+  const pts=stars.map(s=>{s.sparkTimer-=dt*.001;if(s.sparkTimer<0){s.sparkPhase=1;s.sparkTimer=3+Math.random()*9}s.sparkPhase*=.92;const a=s.angle+T*s.angSpeed+Math.sin(T*s.angWobbleFreq+s.angPhase)*s.angWobble;let r=s.radius+Math.sin(T*s.osc+s.flicker)*s.oscAmp+Math.sin(T*s.osc2+s.angPhase)*s.oscAmp*.4;if(state===STATES.LISTENING)r*=1-Math.min(.2,audioLevel*.4);else if(state===STATES.SPEAKING)r*=1+audioLevel*.2;else if(state===STATES.THINKING)r*=1+Math.sin(T*1.5+s.angPhase)*.03;return{x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r*s.tilt,size:s.size*(1+s.sparkPhase*.8),alpha:Math.min(1,s.alpha+s.sparkPhase*.3),hue:s.hue,fs:s.fs,flicker:s.flicker}});
   for(const e of edges){const la=Math.min(pts[e.a].alpha,pts[e.b].alpha)*e.alpha*5;if(la<.01)continue;ctx.beginPath();ctx.moveTo(pts[e.a].x,pts[e.a].y);ctx.lineTo(pts[e.b].x,pts[e.b].y);ctx.strokeStyle=`rgba(147,51,234,${la})`;ctx.lineWidth=.4;ctx.stroke()}
   for(let r=0;r<3;r++){const rr=68+r*30;ctx.beginPath();ctx.ellipse(cx,cy,rr,rr*.24,T*.15+r*1.2,0,Math.PI*2);ctx.strokeStyle=`rgba(147,51,234,${.14-r*.04})`;ctx.lineWidth=.5;ctx.stroke()}
-  const stateColors={idle:'rgb(139,92,246)',listening:'rgb(16,185,129)',thinking:'rgb(99,102,241)',executing:'rgb(245,158,11)',speaking:'rgb(6,182,212)'};
-  const mainColor=stateColors[state]||stateColors.idle,mainRadius=55+breath*8+audioLevel*25;
-  drawOrb(cx,cy,mainRadius,mainColor,1,1);
-  if(audioLevel>.05){const wr=mainRadius+15+audioLevel*30;ctx.beginPath();ctx.arc(cx,cy,wr,0,Math.PI*2);ctx.strokeStyle=rgba(mainColor,audioLevel*.4);ctx.lineWidth=2+audioLevel*4;ctx.stroke()}
-  for(const p of pts){const fa=p.alpha*(.5+.5*Math.sin(T*p.fs*25+p.flicker));if(fa<.025)continue;const c=p.hue<200?`rgba(6,182,212,${fa})`:`rgba(192,132,252,${fa})`;const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size*9);g.addColorStop(0,c);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.size*9,0,Math.PI*2);ctx.fill();ctx.fillStyle=c;starPath(ctx,p.x,p.y,p.size);ctx.fill();ctx.fillStyle=`rgba(255,255,255,${fa*.8})`;ctx.beginPath();ctx.arc(p.x,p.y,p.size*.3,0,Math.PI*2);ctx.fill()}
-  for(const s of[{a:T*.25,r:85,sz:4.2,c:'rgb(6,182,212)'},{a:T*.25+2.1,r:98,sz:3.8,c:'rgb(192,132,252)'},{a:T*.25+4.1,r:78,sz:3.4,c:'rgb(147,51,234)'}]){const sx=cx+Math.cos(s.a)*s.r,sy=cy+Math.sin(s.a)*s.r*.24;const g=ctx.createRadialGradient(sx,sy,0,sx,sy,s.sz*12);g.addColorStop(0,rgba(s.c,.7));g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(sx,sy,s.sz*12,0,Math.PI*2);ctx.fill();ctx.fillStyle=rgba(s.c,.95);starPath(ctx,sx,sy,s.sz);ctx.fill();ctx.fillStyle='white';ctx.beginPath();ctx.arc(sx,sy,s.sz*.45,0,Math.PI*2);ctx.fill()}
-  const now=performance.now();
-  for(const o of subOrbs){o.alpha+=(o.targetAlpha-o.alpha)*.08;o.scale+=(o.targetScale-o.scale)*.08;if(o.alpha<.01&&o.targetAlpha===0)continue;const sx=cx+Math.cos(o.angle+T*o.speed*.15)*o.radius,sy=cy+Math.sin(o.angle+T*o.speed*.15)*o.radius*.3,sr=18+Math.sin(T*2+o.id)*3;drawOrb(sx,sy,sr,o.color,o.alpha*o.alpha,o.scale);ctx.globalAlpha=o.alpha*.8;ctx.font=`${9*devicePixelRatio}px sans-serif`;ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.7)';ctx.fillText(o.icon+' '+o.name,sx,sy+sr+16);ctx.globalAlpha=1;o.files.forEach(f=>{f.alpha+=(f.targetAlpha-f.alpha)*.12;if(f.alpha>.01)drawFileIcon(sx,sy,f,f.alpha,now)});o.files=o.files.filter(f=>f.alpha>.01||f.targetAlpha>0)}
-  subOrbs=subOrbs.filter(o=>o.alpha>.01||o.targetAlpha>0);
+  const colors={idle:"rgb(139,92,246)",wake:"rgb(167,139,250)",listening:"rgb(16,185,129)",thinking:"rgb(99,102,241)",speaking:"rgb(6,182,212)"};
+  const mainColor=colors[state]||colors.idle,mainRadius=55+breath*8+audioLevel*25;
+  drawOrb(cx,cy,mainRadius,mainColor,1,1,q.glow);
+  if(state===STATES.THINKING){for(let i=0;i<3;i++){const ra=T*2+i*Math.PI*2/3;const rr2=mainRadius+22+Math.sin(T*4+i)*4;ctx.beginPath();ctx.arc(cx,cy,rr2,ra,ra+Math.PI*.55);ctx.strokeStyle=rgba(mainColor,.35-i*.09);ctx.lineWidth=2.5-i*.5;ctx.stroke()}}
+  if(state===STATES.SPEAKING){const ringT=T%1.5;for(let i=0;i<3;i++){const rt=(ringT+i*.5)%1.5;const rr3=mainRadius+rt*110;const ra2=(1-rt/1.5)*.28;if(ra2>.01){ctx.beginPath();ctx.arc(cx,cy,rr3,0,Math.PI*2);ctx.strokeStyle=rgba(mainColor,ra2);ctx.lineWidth=1.5;ctx.stroke()}}}
+  if(audioLevel>.05){ctx.beginPath();ctx.arc(cx,cy,mainRadius+15+audioLevel*30,0,Math.PI*2);ctx.strokeStyle=rgba(mainColor,audioLevel*.4);ctx.lineWidth=2+audioLevel*4;ctx.stroke()}
+  for(const p of pts){const fa=p.alpha*(.5+.5*Math.sin(T*p.fs*25+p.flicker));if(fa<.025)continue;const c=p.hue<200?`rgba(6,182,212,${fa})`:`rgba(192,132,252,${fa})`;const glow=p.size*(dynamicDrop?5:8);const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,glow);g.addColorStop(0,c);g.addColorStop(1,"transparent");ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,glow,0,Math.PI*2);ctx.fill();ctx.fillStyle=c;starPath(p.x,p.y,p.size);ctx.fill()}
+  burstParticles=burstParticles.filter(b=>{b.x+=b.vx;b.y+=b.vy;b.vx*=.94;b.vy*=.94;b.life-=.025;if(b.life<=0)return false;ctx.fillStyle=`rgba(${b.rgb},${b.life*.7})`;ctx.beginPath();ctx.arc(b.x,b.y,2+b.life*2,0,Math.PI*2);ctx.fill();return true});
+  if(transitionFlash>.01){ctx.fillStyle=`rgba(255,255,255,${transitionFlash*.06})`;ctx.fillRect(0,0,W,H)}
   requestAnimationFrame(draw);
 }
-draw();
-// Demo sub-orbs
-setTimeout(()=>{const id=spawnSubOrb('Codex','code');showFilePreview(id,'app.js','writing');setTimeout(()=>hideFilePreview(id,'app.js'),2000);setTimeout(()=>showFilePreview(id,'styles.css','writing'),1500);setTimeout(()=>hideFilePreview(id,'styles.css'),3500);setTimeout(()=>updateSubOrb(id,{status:'done'}),4000)},4000);
-setTimeout(()=>{const id=spawnSubOrb('Security Scan','review');showFilePreview(id,'auth.py','reading');setTimeout(()=>hideFilePreview(id,'auth.py'),1800);setTimeout(()=>updateSubOrb(id,{status:'done'}),2500)},8000);
-addLog('Sentinel v0.5 — Web Speech API','');
+resize();
+requestAnimationFrame(draw);
+setState(STATES.IDLE);
 </script>
 </body>
 </html>

@@ -9,4 +9,5 @@ apk/app/build/
 apk/build/
 apk/local.properties
 apk/*.apk
-apk/gradle/wrapper/gradle-wrapper.jar
+.gjc/
+qa-*.png
